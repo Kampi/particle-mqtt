@@ -59,7 +59,7 @@ void Callback(uint16_t TopicLength, char* Topic, uint16_t PayloadLength, char* P
 void setup()
 {
     Serial.begin(9600);
-    Serial.print("--- MQTT example ---");
+    Serial.println("--- MQTT example ---");
 
     Serial.println("[INFO] Set broker IP...");
     Client.SetBroker(IPAddress(192, 168, 178, 52));
