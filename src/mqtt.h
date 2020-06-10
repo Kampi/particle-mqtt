@@ -22,8 +22,6 @@
   Errors and omissions should be reported to DanielKampert@kampis-elektroecke.de
  */
 
-#include "application.h"
-
 /** @file MQTT/MQTT.h
  *  @brief MQTT 3.1.1 implementation for the Particle IoT Argon.
  *		   Please read 
@@ -31,8 +29,10 @@
  *		   when you need more information.
  *
  *  @author Daniel Kampert
- *  @bug No known bugs
+ *  @bug - Improve code to support larger messages than 256 bytes (needs a lot of rework :/)
  */
+
+#include "application.h"
 
 class MQTT
 {
@@ -136,16 +136,16 @@ class MQTT
          *  @param IP   IP address of the MQTT broker
          */
         MQTT(IPAddress IP);
-        /** @brief              Constructor.
-         *  @param IP           IP address of the MQTT broker
-         *  @param Port         Port used by the MQTT client
+        /** @brief      Constructor.
+         *  @param IP   IP address of the MQTT broker
+         *  @param Port	Port used by the MQTT client
          */
         MQTT(IPAddress IP, uint16_t Port);
 
         /** @brief              Constructor.
          *  @param IP           IP address of the MQTT broker
          *  @param Port         Port used by the MQTT client
-         *  @param KeepAlive    Keep-alive time used by the MQTT client
+         *  @param KeepAlive	Keep-alive time used by the MQTT client
          */
         MQTT(IPAddress IP, uint16_t Port, uint16_t KeepAlive);
 
@@ -161,9 +161,9 @@ class MQTT
          */
         ~MQTT();
 
-        /** @brief              Open a connection with the MQTT broker.
-         *  @param ClientID     The Client Identifier identifies the Client to the Server.
-         *  @return             Error code
+        /** @brief          Open a connection with the MQTT broker.
+         *  @param ClientID	The Client Identifier identifies the Client to the Server.
+         *  @return         Error code
          */
         MQTT::Error Connect(const char* ClientID);
 
@@ -327,10 +327,11 @@ class MQTT
             DISCONNECT = 0x0E,
         } ControlPacket;
 
+        Timer* _mPingTimer;
+
         TCPClient _mClient;
         IPAddress _mIP;
         ConnectionState _mConnectionState;
-        Timer* _mPingTimer;
         
         uint8_t _mBuffer[MQTT_BUFFER_SIZE];
 
@@ -357,7 +358,7 @@ class MQTT
         /** @brief	                Transmit a message to the broker.
          *  @param ControlPacket    Type of the transmitted MQTT control packet
          *  @param Flags            Additional flags for the control packet
-         *  @param Length           Length of the message
+         *  @param Length           Length of the message without the fixed header.
          *  @return	                Error code
          */
         MQTT::Error _writeMessage(MQTT::ControlPacket ControlPacket, uint8_t Flags, uint16_t Length);

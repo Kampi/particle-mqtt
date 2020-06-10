@@ -22,7 +22,7 @@ The library comes with some example sketches. See File > Examples for all exampl
 
 | **Version**  | **Description**                            | **Date**    |
 |:------------:|:------------------------------------------:|:-----------:|
-| 1.0          | First release                              | 21.05.2020  |
+| 1.0          | First release                              | 10.06.2020  |
 
 ## License
 

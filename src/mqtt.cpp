@@ -22,6 +22,12 @@
   Errors and omissions should be reported to DanielKampert@kampis-elektroecke.de
  */
 
+/** @file MQTT/MQTT.cpp
+ *  @brief MQTT 3.1.1 implementation for the Particle IoT Argon.
+ *
+ *  @author Daniel Kampert
+ */
+
 #include "MQTT.h"
 
 /** @brief Constant for MQTT version 3.1.1.
@@ -109,18 +115,21 @@ MQTT::Error MQTT::Connect(const char* ClientID, bool CleanSession, MQTT::Will* W
     {
         if(_mClient.connect(this->_mIP, this->_mPort))
         {
+            uint8_t Flags = 0x00;
+
             this->_mCurrentMessageID = 0x01;
 
             // Set the protocol name and the protocol level
             #if(MQTT_VERSION == MQTT_VERSION_3_1)
-                const uint8_t Header[] = {0x00,0x06,'M','Q','I','s','d','p', MQTT_VERSION};
+                const uint8_t Header[] = {0x00, 0x06, 'M', 'Q', 'I', 's', 'd', 'p', MQTT_VERSION};
             #elif(MQTT_VERSION == MQTT_VERSION_3_1_1)
                 const uint8_t Header[] = {0x00, 0x04, 'M', 'Q', 'T', 'T', MQTT_VERSION};
+            #endif
 
             memcpy(this->_mBuffer + MQTT_FIXED_HEADER_SIZE, Header, sizeof(Header));
             Length += sizeof(Header);
 
-            uint8_t Flags = CleanSession << 0x01;
+            Flags |= CleanSession << 0x01;
 
             if(Will)
             {
@@ -217,7 +226,7 @@ MQTT::Error MQTT::Connect(const char* ClientID, bool CleanSession, MQTT::Will* W
             // ToDo: Add more detailed error message
             if(this->_mConnectionState == ACCEPTED)
             {
-                _mPingTimer->start();
+                this->_mPingTimer->start();
 
                 return NO_ERROR;
             }
@@ -390,9 +399,9 @@ MQTT::Error MQTT::Publish(const char* Topic, const uint8_t* Payload, uint16_t Le
 MQTT::Error MQTT::Publish(const char* Topic, const uint8_t* Payload, uint16_t Length, uint16_t* ID, MQTT::QoS QoS, bool Retain, bool DUP)
 {
     uint8_t Flags = 0x00;
-    uint16_t LengthTemp = MQTT_FIXED_HEADER_SIZE;
+    uint16_t ByteOffset = MQTT_FIXED_HEADER_SIZE;
 
-    if((Payload == NULL) || ((LengthTemp - MQTT_FIXED_HEADER_SIZE) > MQTT_BUFFER_SIZE)) 
+    if((Payload == NULL) || ((Length - MQTT_FIXED_HEADER_SIZE - 2) > MQTT_BUFFER_SIZE)) 
     {
         return INVALID_PARAMETER;
     }
@@ -403,13 +412,13 @@ MQTT::Error MQTT::Publish(const char* Topic, const uint8_t* Payload, uint16_t Le
         memset(this->_mBuffer, 0x00, MQTT_BUFFER_SIZE);
 
         // Copy the topic into the buffer
-        this->_copyString(Topic, &LengthTemp);
+        this->_copyString(Topic, &ByteOffset);
 
         // Quality of service 1 and 2 need a packet identifier
         if((QoS == MQTT::QOS_1) || (QoS == MQTT::QOS_2))
         {
-            this->_mBuffer[LengthTemp++] = (this->_mCurrentMessageID >> 0x08);
-            this->_mBuffer[LengthTemp++] = (this->_mCurrentMessageID & 0xFF);
+            this->_mBuffer[ByteOffset++] = (this->_mCurrentMessageID >> 0x08);
+            this->_mBuffer[ByteOffset++] = (this->_mCurrentMessageID & 0xFF);
 
             if(ID != NULL)
             {
@@ -422,7 +431,7 @@ MQTT::Error MQTT::Publish(const char* Topic, const uint8_t* Payload, uint16_t Le
         // Copy the payload into the buffer
         for(uint16_t i = 0x00; i < Length; i++)
         {
-            this->_mBuffer[LengthTemp++] = Payload[i];
+            this->_mBuffer[ByteOffset++] = Payload[i];
         }
 
         // Save the retain status
@@ -435,7 +444,7 @@ MQTT::Error MQTT::Publish(const char* Topic, const uint8_t* Payload, uint16_t Le
         Flags |= (uint8_t)((QoS & 0x03) << 0x01);
 
         // Transmit the buffer
-        return this->_writeMessage(PUBLISH, Flags, LengthTemp - MQTT_FIXED_HEADER_SIZE);
+        return this->_writeMessage(PUBLISH, Flags, ByteOffset - MQTT_FIXED_HEADER_SIZE);
     }
 
     return NOT_CONNECTED;
@@ -548,15 +557,15 @@ MQTT::Error MQTT::_readMessage(uint16_t* FixedHeaderSize, uint16_t* Bytes)
 
 MQTT::Error MQTT::_writeMessage(MQTT::ControlPacket ControlPacket, uint8_t Flags, uint16_t Length)
 {
-    uint8_t EncodedByte;
     uint16_t Remaining = Length;
     uint8_t EncodedBytes[4];
     uint8_t SizeBytes = 0x00;
+    uint8_t TransmissionLength = 0x00;
 
     // Encode the length of the message
     do
     {
-        EncodedByte = Remaining % 0x80;
+        uint8_t EncodedByte = Remaining % 0x80;
         Remaining = Remaining >> 0x07;
         if(Remaining > 0x00)
         {
@@ -570,14 +579,13 @@ MQTT::Error MQTT::_writeMessage(MQTT::ControlPacket ControlPacket, uint8_t Flags
     this->_mBuffer[MQTT_FIXED_HEADER_SIZE - SizeBytes - 0x01] = (ControlPacket << 0x04) | (Flags & 0x0F);
 
     // Copy the encoded length
-    for(int i = 0x00; i < SizeBytes; i++)
+    for(uint8_t i = 0x00; i < SizeBytes; i++)
     {
         this->_mBuffer[MQTT_FIXED_HEADER_SIZE - SizeBytes + i] = EncodedBytes[i];
     }
 
-    uint8_t TransmissionLength = Length + SizeBytes + 0x01;
-
-    if(_mClient.write(this->_mBuffer + (MQTT_FIXED_HEADER_SIZE - SizeBytes - 1), TransmissionLength) != TransmissionLength)
+    TransmissionLength = Length + SizeBytes + 0x01;
+    if(_mClient.write(this->_mBuffer + (MQTT_FIXED_HEADER_SIZE - SizeBytes - 0x01), TransmissionLength) != TransmissionLength)
     {
         return TRANSMISSION_ERROR;
     }

@@ -1,9 +1,9 @@
 /*
- * Example.cpp
+ * Client.cpp
  *
  *  Copyright (C) Daniel Kampert, 2020
  *	Website: www.kampis-elektroecke.de
- *  File info: MQTT 3.1.1 example for Particle IoT devices.
+ *  File info: MQTT 3.1.1 client example for Particle IoT devices.
 
   GNU GENERAL PUBLIC LICENSE:
   This program is free software: you can redistribute it and/or modify
@@ -22,12 +22,12 @@
   Errors and omissions should be reported to DanielKampert@kampis-elektroecke.de
  */
 
-#include <mqtt.h>
+#include <MQTT.h>
 
 MQTT Client;
 MQTT::Will LastWill = 
 {
-    .Topic = "/help",
+    .Topic = "help",
     .Message = "Help me!",
     .QoS = MQTT::QOS_0,
     .Retain = false,
@@ -67,8 +67,8 @@ void setup()
     Serial.println("[INFO] Set publish callback...");
     Client.SetCallback(Callback);
 
-    Serial.printlnf("[INFO] Publish and subscribe to topic '%s'...", "/test");
-    if(Client.Connect("Argon", true, &LastWill) || Client.Publish("/test", "kok"))
+    Serial.printlnf("[INFO] Publish and subscribe to topic '%s'...", "test");
+    if(Client.Connect("Argon", true, &LastWill) || Client.Publish("test", "Hello"))
     {
         Serial.println("        Failed!");
     }
@@ -76,7 +76,7 @@ void setup()
     {
         Serial.println("        Successful!");
 
-        Client.Subscribe("/test", MQTT::QOS_0);
+        Client.Subscribe("test", MQTT::QOS_0);
     }
 }
 
